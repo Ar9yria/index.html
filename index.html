@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingley to Istanbul Virtual Run</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 0;
+        }
+        
+        .sidebar {
+            background: #f8f9fa;
+            padding: 30px;
+            border-right: 2px solid #e0e0e0;
+        }
+        
+        .stats-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stats-card h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .progress-bar-container {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 20px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+        
+        .input-section {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .input-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .user-selection {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .user-selection > div:first-child {
+            flex: 1;
+        }
+        
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #666;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .btn-new-user {
+            background: #28a745;
+            color: white;
+            white-space: nowrap;
+            padding: 12px 20px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        #map {
+            height: 800px;
+            width: 100%;
+        }
+        
+        .current-location {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .current-location strong {
+            color: #856404;
+        }
+        
+        .error-banner {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #dc3545;
+            display: none;
+        }
+        
+        .error-banner.show {
+            display: block;
+        }
+        
+        .error-banner strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .error-banner code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        
+        @media (max-width: 968px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 2px solid #e0e0e0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏃 Bingley to Istanbul Virtual Run</h1>
+            <p>Track our collective progress on this epic 3,200 km journey across Europe</p>
+        </div>
+        
+        <div class="content">
+            <div class="sidebar">
+                <div class="error-banner" id="error-banner">
+                    <strong>⚠️ Configuration Error</strong>
+                    <span id="error-message"></span>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>📊 Group Progress</h3>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Distance:</span>
+                        <span class="stat-value">3,200 km</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Completed:</span>
+                        <span class="stat-value" id="completed-km">0 km</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Remaining:</span>
+                        <span class="stat-value" id="remaining-km">3,200 km</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Progress:</span>
+                        <span class="stat-value" id="percentage">0%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                </div>
+                
+                <div class="input-section">
+                    <h3>➕ Add Your Run</h3>
+                    
+                    <div class="input-group">
+                        <label for="user-select">Who ran?</label>
+                        <div class="user-selection">
+                            <div>
+                                <select id="user-select">
+                                    <option value="">Loading users...</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-new-user" onclick="handleNewUser()">I'm new</button>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label for="km-input">Distance (km):</label>
+                        <input type="number" id="km-input" placeholder="Enter kilometers" step="0.1" min="0.1">
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="addDistance()">Add to Journey</button>
+                    <button class="btn btn-secondary" onclick="undoLastEntry()">Undo My Last Entry</button>
+                </div>
+                
+                <div class="current-location">
+                    <strong>📍 Current Location:</strong><br>
+                    <span id="location-name">Bingley, UK - START</span>
+                </div>
+            </div>
+            
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script>
+        // ===== SUPABASE CONFIGURATION =====
+        // PASTE YOUR SUPABASE URL AND ANON KEY HERE
+        const SUPABASE_URL = 'https://dutkafwjdbygrryyrxqz.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_uvMKasQPcj9WmOak5oaeLA_pRUaZPbv';
+        
+        // Check if credentials are configured
+        function checkCredentials() {
+            if (SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY_HERE') {
+                showError('Supabase credentials not configured. Please edit the HTML file and add your Supabase URL and anon key. See SETUP_INSTRUCTIONS.md for details.');
+                return false;
+            }
+            return true;
+        }
+        
+        function showError(message) {
+            const banner = document.getElementById('error-banner');
+            const messageEl = document.getElementById('error-message');
+            messageEl.textContent = message;
+            banner.classList.add('show');
+            
+            // Also disable the "I'm new" button and other controls
+            document.getElementById('user-select').disabled = true;
+            document.querySelector('.btn-new-user').disabled = true;
+            document.querySelector('.btn-primary').disabled = true;
+            document.querySelector('.btn-secondary').disabled = true;
+        }
+        
+        // Initialize Supabase client only if credentials are valid
+        let supabase = null;
+        if (checkCredentials()) {
+            try {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            } catch (error) {
+                showError('Error initializing Supabase: ' + error.message);
+            }
+        }
+        
+        // ===== CONSTANTS =====
+        const TOTAL_DISTANCE = 3200;
+        
+        // Color palette for different users
+        const colorPalette = [
+            '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
+            '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
+            '#d35400', '#8e44ad', '#2980b9', '#27ae60', '#f1c40f'
+        ];
+        
+        // ===== STATE VARIABLES =====
+        let completedDistance = 0;
+        let users = [];
+        let runs = [];
+        let userSegments = []; // Array of {startDist, endDist, userName}
+        
+        // ===== MAP SETUP =====
+        const map = L.map('map').setView([53.8575, -1.8441], 6);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        // Route coordinates
+        const ukRoute = [
+            [53.8575, -1.8441], [53.8, -1.55], [53.48, -1.0],
+            [53.38, -0.44], [53.23, -0.54], [52.95, 1.16],
+            [51.51, 0.13], [51.28, 1.08], [51.13, 1.31]
+        ];
+        
+        const europeRoute = [
+            [51.22, 2.93], [51.05, 3.72], [50.85, 4.35],
+            [50.93, 5.33], [51.44, 5.48], [51.69, 5.30],
+            [51.92, 4.48], [51.50, 5.08], [51.44, 5.48],
+            [51.26, 5.96], [51.22, 5.18], [51.44, 5.48],
+            [51.33, 6.17], [51.23, 6.78], [50.94, 6.96],
+            [50.73, 7.10], [50.11, 8.68], [49.42, 8.71],
+            [48.78, 9.18], [48.14, 11.58], [47.81, 13.05],
+            [48.21, 16.37], [47.71, 17.02], [47.50, 19.04],
+            [46.77, 19.69], [46.25, 20.15], [45.56, 18.67],
+            [45.27, 19.85], [44.82, 20.46], [43.86, 20.39],
+            [43.32, 21.90], [42.82, 22.69], [42.70, 23.32],
+            [42.14, 24.75], [41.99, 25.43], [41.68, 26.56],
+            [41.37, 27.14], [41.18, 27.91], [41.09, 28.30],
+            [41.02, 28.76], [41.01, 28.98]
+        ];
+        
+        const allRoute = [...ukRoute, ...europeRoute];
+        
+        // Draw full route (gray)
+        L.polyline(allRoute, {
+            color: '#95a5a6',
+            weight: 3,
+            opacity: 0.5
+        }).addTo(map);
+        
+        // Start and finish markers
+        const startMarker = L.marker([53.8575, -1.8441], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#2ecc71;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);'>S</div>",
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            })
+        }).addTo(map);
+        
+        const finishMarker = L.marker([41.01, 28.98], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#e74c3c;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);'>F</div>",
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            })
+        }).addTo(map);
+        
+        // Current position marker
+        const currentMarker = L.marker([53.8575, -1.8441], {
+            icon: L.divIcon({
+                className: 'custom-div-icon',
+                html: "<div style='background-color:#f39c12;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);'></div>",
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            })
+        }).addTo(map);
+        
+        let progressLines = [];
+        
+        // ===== HELPER FUNCTIONS =====
+        
+        function getSegmentLengths() {
+            const lengths = [];
+            for (let i = 0; i < allRoute.length - 1; i++) {
+                const [lat1, lon1] = allRoute[i];
+                const [lat2, lon2] = allRoute[i + 1];
+                const R = 6371;
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                         Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const distance = R * c;
+                lengths.push(distance);
+            }
+            
+            const totalActual = lengths.reduce((sum, len) => sum + len, 0);
+            const scaleFactor = TOTAL_DISTANCE / totalActual;
+            return lengths.map(len => len * scaleFactor);
+        }
+        
+        const segmentLengths = getSegmentLengths();
+        
+        function getPositionAtDistance(distance) {
+            let accumulated = 0;
+            
+            for (let i = 0; i < segmentLengths.length; i++) {
+                const segmentLength = segmentLengths[i];
+                
+                if (accumulated + segmentLength >= distance) {
+                    const remainingInSegment = distance - accumulated;
+                    const fraction = remainingInSegment / segmentLength;
+                    
+                    const [lat1, lon1] = allRoute[i];
+                    const [lat2, lon2] = allRoute[i + 1];
+                    const lat = lat1 + (lat2 - lat1) * fraction;
+                    const lon = lon1 + (lon2 - lon1) * fraction;
+                    
+                    return {
+                        coords: [lat, lon],
+                        segmentIndex: i
+                    };
+                }
+                
+                accumulated += segmentLength;
+            }
+            
+            return {
+                coords: allRoute[allRoute.length - 1],
+                segmentIndex: allRoute.length - 2
+            };
+        }
+        
+        function getLocationName(segmentIndex) {
+            const locations = [
+                "Bingley, UK - START", "Leeds", "Towards Sheffield",
+                "Sheffield", "Towards Lincoln", "Norwich",
+                "London", "Canterbury", "Dover",
+                "Calais, France", "Dunkirk", "Belgian Border",
+                "Bruges, Belgium", "Ghent", "Brussels",
+                "Leuven", "Towards Netherlands", "Maastricht",
+                "Netherlands Border", "Eindhoven", "Towards Amsterdam",
+                "Rotterdam", "East of Rotterdam", "Towards Dordrecht",
+                "Dordrecht", "Towards Breda", "Breda",
+                "Eindhoven", "Dutch-German Border", "Düsseldorf, Germany",
+                "Cologne", "Frankfurt", "Heidelberg",
+                "Stuttgart", "Munich", "Salzburg, Austria",
+                "Vienna", "Austrian-Hungarian Border", "Budapest, Hungary",
+                "Southern Hungary", "Szeged", "Hungarian-Serbian Border",
+                "Novi Sad, Serbia", "Belgrade", "Central Serbia",
+                "Niš", "Serbian-Bulgarian Border", "Sofia, Bulgaria",
+                "Plovdiv", "Eastern Bulgaria", "Edirne, Turkey",
+                "Turkish Thrace", "Approaching Istanbul", "Istanbul, Turkey - FINISH!"
+            ];
+            
+            return locations[Math.min(segmentIndex, locations.length - 1)];
+        }
+        
+        function getUserColor(userName) {
+            const userIndex = users.findIndex(u => u.name === userName);
+            return colorPalette[userIndex % colorPalette.length];
+        }
+        
+        // ===== SUPABASE FUNCTIONS =====
+        
+        async function loadUsers() {
+            if (!supabase) {
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .order('id', { ascending: true });
+                
+                if (error) {
+                    console.error('Supabase error:', error);
+                    showError(`Error loading users: ${error.message}. Check that the SQL schema was run correctly in Supabase.`);
+                    return;
+                }
+                
+                users = data || [];
+                populateUserDropdown();
+            } catch (error) {
+                console.error('Error loading users:', error);
+                showError(`Error loading users: ${error.message}`);
+            }
+        }
+        
+        function populateUserDropdown() {
+            const select = document.getElementById('user-select');
+            select.innerHTML = '<option value="">-- Select your name --</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.name;
+                option.textContent = user.name;
+                select.appendChild(option);
+            });
+            
+            // Restore last selected user from localStorage
+            const lastUser = localStorage.getItem('bingleyIstanbulLastUser');
+            if (lastUser && users.find(u => u.name === lastUser)) {
+                select.value = lastUser;
+            }
+        }
+        
+        async function loadRuns() {
+            if (!supabase) {
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('runs')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+                
+                if (error) {
+                    console.error('Supabase error:', error);
+                    showError(`Error loading runs: ${error.message}. Check that the SQL schema was run correctly in Supabase.`);
+                    return;
+                }
+                
+                runs = data || [];
+                recalculateProgress();
+            } catch (error) {
+                console.error('Error loading runs:', error);
+                showError(`Error loading runs: ${error.message}`);
+            }
+        }
+        
+        function recalculateProgress() {
+            completedDistance = 0;
+            userSegments = [];
+            
+            runs.forEach(run => {
+                const startDist = completedDistance;
+                completedDistance += parseFloat(run.distance_km);
+                const endDist = completedDistance;
+                
+                userSegments.push({
+                    startDist: startDist,
+                    endDist: endDist,
+                    userName: run.user_name
+                });
+            });
+            
+            // Cap at total distance
+            if (completedDistance > TOTAL_DISTANCE) {
+                completedDistance = TOTAL_DISTANCE;
+            }
+            
+            updateProgress();
+        }
+        
+        function updateProgress() {
+            const percentage = (completedDistance / TOTAL_DISTANCE) * 100;
+            const position = getPositionAtDistance(completedDistance);
+            
+            document.getElementById('completed-km').textContent = completedDistance.toFixed(1) + ' km';
+            document.getElementById('remaining-km').textContent = (TOTAL_DISTANCE - completedDistance).toFixed(1) + ' km';
+            document.getElementById('percentage').textContent = percentage.toFixed(1) + '%';
+            document.getElementById('progress-bar').style.width = Math.min(percentage, 100) + '%';
+            
+            // Clear existing progress lines
+            progressLines.forEach(line => map.removeLayer(line));
+            progressLines = [];
+            
+            const ukSegmentCount = ukRoute.length - 1;
+            
+            // Draw each user segment with their color
+            userSegments.forEach(segment => {
+                const color = getUserColor(segment.userName);
+                const startPos = getPositionAtDistance(segment.startDist);
+                const endPos = getPositionAtDistance(segment.endDist);
+                
+                // Build the segment coordinates
+                let segmentCoords = [];
+                
+                // Handle segments that might span UK and Europe sections
+                if (startPos.segmentIndex < ukSegmentCount && endPos.segmentIndex < ukSegmentCount) {
+                    // Entirely in UK
+                    segmentCoords = ukRoute.slice(startPos.segmentIndex, endPos.segmentIndex + 2);
+                    segmentCoords[0] = startPos.coords;
+                    segmentCoords[segmentCoords.length - 1] = endPos.coords;
+                } else if (startPos.segmentIndex >= ukSegmentCount && endPos.segmentIndex >= ukSegmentCount) {
+                    // Entirely in Europe
+                    const startEuropeIdx = startPos.segmentIndex - ukSegmentCount;
+                    const endEuropeIdx = endPos.segmentIndex - ukSegmentCount;
+                    segmentCoords = europeRoute.slice(startEuropeIdx, endEuropeIdx + 2);
+                    segmentCoords[0] = startPos.coords;
+                    segmentCoords[segmentCoords.length - 1] = endPos.coords;
+                } else {
+                    // Spans UK and Europe - draw UK part and Europe part separately
+                    const ukPart = ukRoute.slice(startPos.segmentIndex);
+                    ukPart[0] = startPos.coords;
+                    
+                    const endEuropeIdx = endPos.segmentIndex - ukSegmentCount;
+                    const europePart = europeRoute.slice(0, endEuropeIdx + 2);
+                    europePart[europePart.length - 1] = endPos.coords;
+                    
+                    segmentCoords = [...ukPart, ...europePart];
+                }
+                
+                const line = L.polyline(segmentCoords, {
+                    color: color,
+                    weight: 5,
+                    opacity: 0.9
+                }).addTo(map);
+                
+                progressLines.push(line);
+            });
+            
+            // Update marker
+            currentMarker.setLatLng(position.coords);
+            
+            // Update location name
+            const locationName = getLocationName(position.segmentIndex);
+            document.getElementById('location-name').textContent = locationName;
+            
+            // Pan to current position
+            map.setView(position.coords, map.getZoom());
+        }
+        
+        async function handleNewUser() {
+            if (!supabase) {
+                alert('Supabase is not configured. Please check the error message at the top of the sidebar.');
+                return;
+            }
+            
+            const name = prompt('Enter your name:');
+            
+            if (!name || name.trim() === '') {
+                return;
+            }
+            
+            const trimmedName = name.trim();
+            
+            // Check if user already exists
+            const existingUser = users.find(u => u.name.toLowerCase() === trimmedName.toLowerCase());
+            
+            if (existingUser) {
+                // User exists, just select them
+                document.getElementById('user-select').value = existingUser.name;
+                localStorage.setItem('bingleyIstanbulLastUser', existingUser.name);
+                return;
+            }
+            
+            // Insert new user
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .insert([{ name: trimmedName }])
+                    .select();
+                
+                if (error) {
+                    console.error('Supabase error:', error);
+                    alert(`Error creating user: ${error.message}`);
+                    return;
+                }
+                
+                // Reload users and select the new one
+                await loadUsers();
+                document.getElementById('user-select').value = trimmedName;
+                localStorage.setItem('bingleyIstanbulLastUser', trimmedName);
+                
+                alert(`Welcome, ${trimmedName}!`);
+            } catch (error) {
+                console.error('Error creating user:', error);
+                alert(`Error creating user: ${error.message}`);
+            }
+        }
+        
+        async function addDistance() {
+            if (!supabase) {
+                alert('Supabase is not configured. Please check the error message at the top of the sidebar.');
+                return;
+            }
+            
+            const userSelect = document.getElementById('user-select');
+            const userName = userSelect.value;
+            
+            if (!userName) {
+                alert('Please select your name from the dropdown or click "I\'m new"');
+                return;
+            }
+            
+            const input = document.getElementById('km-input');
+            const km = parseFloat(input.value);
+            
+            if (isNaN(km) || km <= 0) {
+                alert('Please enter a valid distance in kilometers');
+                return;
+            }
+            
+            let addedAmount = km;
+            
+            if (completedDistance + km > TOTAL_DISTANCE) {
+                const remaining = TOTAL_DISTANCE - completedDistance;
+                if (confirm(`Only ${remaining.toFixed(1)} km remaining. Add this amount instead?`)) {
+                    addedAmount = remaining;
+                } else {
+                    return;
+                }
+            }
+            
+            // Insert run into database
+            try {
+                const { data, error } = await supabase
+                    .from('runs')
+                    .insert([{
+                        user_name: userName,
+                        distance_km: addedAmount
+                    }])
+                    .select();
+                
+                if (error) {
+                    console.error('Supabase error:', error);
+                    alert(`Error adding run: ${error.message}`);
+                    return;
+                }
+                
+                // Save last selected user
+                localStorage.setItem('bingleyIstanbulLastUser', userName);
+                
+                // Reload runs and update display
+                await loadRuns();
+                input.value = '';
+                
+                if (completedDistance >= TOTAL_DISTANCE) {
+                    setTimeout(() => {
+                        alert('🎉 Congratulations! The group has completed the journey from Bingley to Istanbul! 🎉');
+                    }, 500);
+                }
+            } catch (error) {
+                console.error('Error adding run:', error);
+                alert(`Error adding run: ${error.message}`);
+            }
+        }
+        
+        async function undoLastEntry() {
+            if (!supabase) {
+                alert('Supabase is not configured. Please check the error message at the top of the sidebar.');
+                return;
+            }
+            
+            const userSelect = document.getElementById('user-select');
+            const userName = userSelect.value;
+            
+            if (!userName) {
+                alert('Please select your name from the dropdown');
+                return;
+            }
+            
+            // Find the most recent run by this user
+            const userRuns = runs.filter(r => r.user_name === userName);
+            
+            if (userRuns.length === 0) {
+                alert('You have no entries to undo');
+                return;
+            }
+            
+            const lastRun = userRuns[userRuns.length - 1];
+            
+            // Delete the run
+            try {
+                const { error } = await supabase
+                    .from('runs')
+                    .delete()
+                    .eq('id', lastRun.id);
+                
+                if (error) {
+                    console.error('Supabase error:', error);
+                    alert(`Error undoing run: ${error.message}`);
+                    return;
+                }
+                
+                // Reload runs and update display
+                await loadRuns();
+                
+                alert(`Undid your last entry of ${parseFloat(lastRun.distance_km).toFixed(1)} km`);
+            } catch (error) {
+                console.error('Error undoing run:', error);
+                alert(`Error undoing run: ${error.message}`);
+            }
+        }
+        
+        // ===== INITIALIZATION =====
+        
+        async function initializeApp() {
+            if (!supabase) {
+                console.error('Supabase not initialized - check credentials');
+                return;
+            }
+            
+            await loadUsers();
+            await loadRuns();
+        }
+        
+        // Allow Enter key to add distance
+        document.getElementById('km-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addDistance();
+            }
+        });
+        
+        // Save selected user on change
+        document.getElementById('user-select').addEventListener('change', function(e) {
+            if (e.target.value) {
+                localStorage.setItem('bingleyIstanbulLastUser', e.target.value);
+            }
+        });
+        
+        // Initialize on page load
+        initializeApp();
+    </script>
+</body>
+</html>
